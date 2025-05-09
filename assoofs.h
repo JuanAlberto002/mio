@@ -21,7 +21,7 @@
 const int ASSOOFS_TRUE = 1;   //no hay booleans asi que toca usar esto
 const int ASSOOFS_FALSE = 0;
 
-struct assoofs_super_block_info {  //estructura del SUPERBLOQUE ya lo tenemos puesto en el mk
+struct assoofs_super_block_info {  //estructura del SUPERBLOQUE ya lo tenemos puesto en el mk pero aqui lo definimos
 	uint64_t version;
 	uint64_t magic;
 	uint64_t block_size;
@@ -31,21 +31,23 @@ struct assoofs_super_block_info {  //estructura del SUPERBLOQUE ya lo tenemos pu
 	char padding[4048];
 };
 
-struct assoofs_dir_record_entry {
-	char filename[ASSOOFS_FILENAME_MAXLEN];
-	uint64_t inode_no;
-	uint64_t entry_removed;
+struct assoofs_dir_record_entry { //lo mismo con el directorio de entrada
+	char filename[ASSOOFS_FILENAME_MAXLEN]; //nombre del archivo
+	uint64_t inode_no;  //DNI del inodo
+	uint64_t entry_removed;  //si ha sido borrado se hace para hacer soft deletes y asi poder recuperar archivos eliminados
 };
 
-struct assoofs_inode_info {
-	mode_t mode;
-	uint64_t inode_no;
-	uint64_t data_block_number;
-	union {
-    	uint64_t file_size;
-    	uint64_t dir_children_count;
+struct assoofs_inode_info {   //info que tendra el inodo
+	mode_t mode; //tipo y permisos, directorio o archivo 
+	uint64_t inode_no;  //identificador unico 
+	uint64_t data_block_number; //bloque de datos asociado (en algun lugar tiene que estar)
+	union {                                                                  //IMPORTANTE se usa union porque solo vamos a usar una, si es archivo pues tenemos nuesto espacio y si es directorio pues sus entradas (ahorrar espacio)
+    	uint64_t file_size; //tamaño de bytes
+    	uint64_t dir_children_count;  //numero de entradas del directorio 
 	};
 };
 
 #endif
+
+
 
