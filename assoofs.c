@@ -6,23 +6,24 @@
 #include <linux/slab.h>
 #include "assoofs.h"
 
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("GPL");  //metadatos
 MODULE_AUTHOR("Tu Nombre");
 MODULE_DESCRIPTION("Sistema de ficheros ASSOOFS");
 // Prototipos de nuevas funciones
-static ssize_t assoofs_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos);
-static ssize_t assoofs_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos);
-static int assoofs_create(struct mnt_idmap *idmap, struct inode *dir, struct dentry *dentry, umode_t mode, bool excl);
-static int assoofs_mkdir(struct mnt_idmap *idmap, struct inode *dir, struct dentry *dentry, umode_t mode);
-struct dentry *assoofs_lookup(struct inode *parent_inode, struct dentry *child_dentry, unsigned int flags);
-static int assoofs_iterate(struct file *filp, struct dir_context *ctx);
+static ssize_t assoofs_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos);   //leer o escribir un archivo
+static ssize_t assoofs_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos);   
+static int assoofs_create(struct mnt_idmap *idmap, struct inode *dir, struct dentry *dentry, umode_t mode, bool excl);   //crear un archivo 
+static int assoofs_mkdir(struct mnt_idmap *idmap, struct inode *dir, struct dentry *dentry, umode_t mode);   //crear un directorio
+struct dentry *assoofs_lookup(struct inode *parent_inode, struct dentry *child_dentry, unsigned int flags);  //Buscar un archivo o directorio
+static int assoofs_iterate(struct file *filp, struct dir_context *ctx);  //lista el contenido de un directorio
 
 
 // Operaciones sobre directorios
-const struct file_operations assoofs_dir_operations = {
+const struct file_operations assoofs_dir_operations = {  
 	.owner = THIS_MODULE,
 	.iterate_shared = assoofs_iterate,
 };
+// Operaciones sobre archivos
 const struct file_operations assoofs_file_operations = {
 	.owner = THIS_MODULE,
 	.read = assoofs_read,
@@ -41,20 +42,20 @@ static struct dentry *assoofs_mount(struct file_system_type *fs_type, int flags,
 int assoofs_fill_super(struct super_block *sb, void *data, int silent);
 
 // Definición del sistema de ficheros
-static struct file_system_type assoofs_type = {
+static struct file_system_type assoofs_type = {   //Registra el sistema de ficheros
 	.owner = THIS_MODULE,
 	.name = "assoofs",
-	.mount = assoofs_mount,
-	.kill_sb = kill_block_super,
+	.mount = assoofs_mount,  //se llama con un mount -t assoofs...
+	.kill_sb = kill_block_super,     //desmonta
 };
 
 // Operaciones sobre superbloque
 static const struct super_operations assoofs_sops = {
-	.drop_inode = generic_delete_inode,
+	.drop_inode = generic_delete_inode,                        //operacion de borrado de inodos
 };
 
 // Función para inicializar el superbloque
-int assoofs_fill_super(struct super_block *sb, void *data, int silent) {
+int assoofs_fill_super(struct super_block *sb, void *data, int silent) {       //crea el superbloque y el directorio raiz
 	printk(KERN_INFO "assoofs_fill_super called\n");
 
 	struct buffer_head *bh;
@@ -72,17 +73,17 @@ int assoofs_fill_super(struct super_block *sb, void *data, int silent) {
 	sb->s_magic = assoofs_sb->magic;
 	sb->s_fs_info = assoofs_sb;
 	sb->s_op = &assoofs_sops;
-struct inode *root_inode = new_inode(sb);
-inode_init_owner(&nop_mnt_idmap, root_inode, NULL, S_IFDIR);
-root_inode->i_ino = ASSOOFS_ROOTDIR_INODE_NUMBER;
-root_inode->i_sb = sb;
-root_inode->i_op = &assoofs_inode_ops;
-root_inode->i_fop = &assoofs_dir_operations;
+	struct inode *root_inode = new_inode(sb);
+	inode_init_owner(&nop_mnt_idmap, root_inode, NULL, S_IFDIR);
+	root_inode->i_ino = ASSOOFS_ROOTDIR_INODE_NUMBER;
+	root_inode->i_sb = sb;	
+	root_inode->i_op = &assoofs_inode_ops;
+	root_inode->i_fop = &assoofs_dir_operations;
 
-root_inode->i_private = kzalloc(sizeof(struct assoofs_inode_info), GFP_KERNEL);
-//memcpy(root_inode->i_private, assoofs_sb, sizeof(struct assoofs_super_block_info)); // Opcional: si quieres guardar algo
+	root_inode->i_private = kzalloc(sizeof(struct assoofs_inode_info), GFP_KERNEL);
+	//memcpy(root_inode->i_private, assoofs_sb, sizeof(struct assoofs_super_block_info)); // Opcional: si quieres guardar algo
 
-sb->s_root = d_make_root(root_inode);
+	sb->s_root = d_make_root(root_inode);
 
 	brelse(bh);
 
