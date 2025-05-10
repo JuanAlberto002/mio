@@ -5,11 +5,19 @@
 #include <linux/buffer_head.h>
 #include <linux/slab.h>
 #include "assoofs.h"
+#include <linux/string.h>  
+
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Tu Nombre");
 MODULE_DESCRIPTION("Sistema de ficheros ASSOOFS");
 // Prototipos de nuevas funciones
+static uint64_t assoofs_sb_get_freeinode(struct super_block *sb);
+static int assoofs_remove(struct inode *dir, struct dentry *dentry);
+static void assoofs_add_inode_info(struct super_block *sb, struct assoofs_inode_info *inode);
+static void assoofs_save_sb_info(struct super_block *sb);
+static uint64_t assoofs_sb_get_freeblock(struct super_block *sb);
+static struct assoofs_inode_info *assoofs_get_inode_info(struct super_block *sb, uint64_t inode_no);
 static ssize_t assoofs_write(struct file *filp, const char __user *buf, size_t len, loff_t *ppos);
 static ssize_t assoofs_read(struct file *filp, char __user *buf, size_t len, loff_t *ppos);
 static int assoofs_create(struct mnt_idmap *idmap, struct inode *dir, struct dentry *dentry, umode_t mode, bool excl);
@@ -34,6 +42,7 @@ static struct inode_operations assoofs_inode_ops = {
     .lookup = assoofs_lookup,
     .create = assoofs_create,
     .mkdir = assoofs_mkdir,
+    .unlink = assoofs_remove,
 };
 
 // Prototipos
@@ -162,19 +171,18 @@ static int assoofs_create(struct mnt_idmap *idmap, struct inode *dir, struct den
     }
 
     inode = new_inode(sb);
-    inode->i_ino = parent_info->dir_children_count + 1;
+    inode->i_ino = assoofs_sb_get_freeinode(sb);   // ← Usamos nuestra función
     inode->i_sb = sb;
     inode_init_owner(&nop_mnt_idmap, inode, dir, S_IFREG | mode);
 
     inode->i_op = &assoofs_inode_ops;
     inode->i_fop = &assoofs_file_operations;
 
-
     inode_info = kzalloc(sizeof(struct assoofs_inode_info), GFP_KERNEL);
     inode_info->inode_no = inode->i_ino;
     inode_info->mode = S_IFREG | mode;
     inode_info->file_size = 0;
-    inode_info->data_block_number = ASSOOFS_LAST_RESERVED_BLOCK + inode->i_ino;
+    inode_info->data_block_number = assoofs_sb_get_freeblock(sb);  // ← También usamos
 
     inode->i_private = inode_info;
 
@@ -190,15 +198,56 @@ static int assoofs_create(struct mnt_idmap *idmap, struct inode *dir, struct den
     mark_buffer_dirty(bh);
     brelse(bh);
 
+    // 🔥 **AÑADIMOS ESTO**:
+    assoofs_add_inode_info(sb, inode_info);
+
     parent_info->dir_children_count++;
     assoofs_sb->inodes_count++;
     assoofs_sb->free_inodes--;
+
+    assoofs_save_sb_info(sb);  // 🔥 **AÑADIMOS ESTO TAMBIÉN**
 
     d_instantiate(dentry, inode);
 
     printk(KERN_INFO "File %s created successfully\n", dentry->d_name.name);
     return 0;
 }
+  
+static uint64_t assoofs_sb_get_freeinode(struct super_block *sb) {
+    struct assoofs_super_block_info *assoofs_sb = sb->s_fs_info;
+    uint64_t free_inode = ASSOOFS_LAST_RESERVED_INODE + 1 + assoofs_sb->inodes_count;
+    return free_inode;
+}
+static uint64_t assoofs_sb_get_freeblock(struct super_block *sb) {
+    struct assoofs_super_block_info *assoofs_sb = sb->s_fs_info;
+    uint64_t free_block = ASSOOFS_LAST_RESERVED_BLOCK + 1 + assoofs_sb->inodes_count;
+    return free_block;
+}
+static void assoofs_save_sb_info(struct super_block *sb) {
+    struct buffer_head *bh;
+    struct assoofs_super_block_info *assoofs_sb = sb->s_fs_info;
+
+    bh = sb_bread(sb, ASSOOFS_SUPERBLOCK_BLOCK_NUMBER);
+    memcpy(bh->b_data, assoofs_sb, sizeof(struct assoofs_super_block_info));
+    mark_buffer_dirty(bh);
+    sync_dirty_buffer(bh);
+    brelse(bh);
+}
+static void assoofs_add_inode_info(struct super_block *sb, struct assoofs_inode_info *inode) {
+    struct buffer_head *bh;
+    struct assoofs_inode_info *inode_info;
+    struct assoofs_super_block_info *assoofs_sb = sb->s_fs_info;
+
+    bh = sb_bread(sb, ASSOOFS_INODESTORE_BLOCK_NUMBER);
+    inode_info = (struct assoofs_inode_info *)bh->b_data;
+    inode_info += assoofs_sb->inodes_count;  // siguiente inodo libre
+
+    memcpy(inode_info, inode, sizeof(struct assoofs_inode_info));
+    mark_buffer_dirty(bh);
+    sync_dirty_buffer(bh);
+    brelse(bh);
+}
+
 static int assoofs_mkdir(struct mnt_idmap *idmap, struct inode *dir, struct dentry *dentry, umode_t mode) {
     struct super_block *sb = dir->i_sb;
     struct assoofs_super_block_info *assoofs_sb = sb->s_fs_info;
@@ -216,7 +265,7 @@ static int assoofs_mkdir(struct mnt_idmap *idmap, struct inode *dir, struct dent
     }
 
     inode = new_inode(sb);
-    inode->i_ino = parent_info->dir_children_count + 1;
+    inode->i_ino = assoofs_sb_get_freeinode(sb);
     inode->i_sb = sb;
     inode_init_owner(&nop_mnt_idmap, inode, dir, S_IFDIR | mode);
 
@@ -227,7 +276,7 @@ static int assoofs_mkdir(struct mnt_idmap *idmap, struct inode *dir, struct dent
     inode_info->inode_no = inode->i_ino;
     inode_info->mode = S_IFDIR | mode;
     inode_info->file_size = 0;
-    inode_info->data_block_number = ASSOOFS_LAST_RESERVED_BLOCK + inode->i_ino;
+    inode_info->data_block_number = assoofs_sb_get_freeblock(sb);
 
     inode->i_private = inode_info;
 
@@ -243,9 +292,14 @@ static int assoofs_mkdir(struct mnt_idmap *idmap, struct inode *dir, struct dent
     mark_buffer_dirty(bh);
     brelse(bh);
 
+    // 🔥 **AÑADIMOS ESTO**:
+    assoofs_add_inode_info(sb, inode_info);
+
     parent_info->dir_children_count++;
     assoofs_sb->inodes_count++;
     assoofs_sb->free_inodes--;
+
+    assoofs_save_sb_info(sb);  // 🔥 **AÑADIMOS ESTO TAMBIÉN**
 
     d_instantiate(dentry, inode);
 
@@ -367,7 +421,49 @@ static ssize_t assoofs_write(struct file *filp, const char __user *buf, size_t l
     ret = len;
     return ret;
 }
- 
+static int assoofs_remove(struct inode *dir, struct dentry *dentry) {
+    struct inode *inode = d_inode(dentry);
+    struct super_block *sb = dir->i_sb;
+    struct assoofs_super_block_info *assoofs_sb = sb->s_fs_info;
+    struct assoofs_inode_info *parent_info = dir->i_private;
+    struct buffer_head *bh;
+    struct assoofs_dir_record_entry *record;
+    int i;
+
+    printk(KERN_INFO "assoofs_remove called for %s\n", dentry->d_name.name);
+
+    // 1. Marcar la entrada como eliminada en el directorio
+    bh = sb_bread(sb, parent_info->data_block_number);
+    record = (struct assoofs_dir_record_entry *)bh->b_data;
+
+    for (i = 0; i < parent_info->dir_children_count; i++) {
+        if (strcmp(record->filename, dentry->d_name.name) == 0) {
+            record->entry_removed = ASSOOFS_TRUE;
+            mark_buffer_dirty(bh);
+            break;
+        }
+        record++;
+    }
+    brelse(bh);
+
+    // 2. Decrementar contadores
+    parent_info->dir_children_count--;
+    assoofs_sb->inodes_count--;
+    assoofs_sb->free_inodes++;
+    assoofs_sb->free_blocks++;
+
+    assoofs_save_sb_info(sb);  // Guardamos cambios del superbloque
+
+    // 3. Borrar el inodo (liberarlo)
+    clear_nlink(inode);
+    inode->i_size = 0;
+    mark_inode_dirty(inode);
+
+    printk(KERN_INFO "File %s removed successfully\n", dentry->d_name.name);
+    return 0;
+}
+
 
 module_init(assoofs_init);
 module_exit(assoofs_exit);
+
