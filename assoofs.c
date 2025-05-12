@@ -79,11 +79,11 @@ int assoofs_fill_super(struct super_block *sb, void *data, int silent) { //punte
     }
 
     sb->s_magic = assoofs_sb->magic;   
-    sb->s_fs_info = assoofs_sb; //guarda un puntero al ssb personalizado para tenerlo a mano 
+    sb->s_fs_info = assoofs_sb; //Guarda un puntero a nuestra copia en memoria del superbloque ASSOOFS 
     sb->s_op = &assoofs_sops; //le asigna las operaciones de sb que hay arriba
     struct inode *root_inode = new_inode(sb); //crea un nuevo inodo que sera el del directorio raiz
-    inode_init_owner(&nop_mnt_idmap, root_inode, NULL, S_IFDIR);  //lo inicializa como directorio y le pone permisos super
-    root_inode->i_ino = ASSOOFS_ROOTDIR_INODE_NUMBER; //sera su numero el 0
+    inode_init_owner(&nop_mnt_idmap, root_inode, NULL, S_IFDIR);  //Inicializa como directorio (S_IFDIR) y establece propietario (root / idmap nulo)
+    root_inode->i_ino = ASSOOFS_ROOTDIR_INODE_NUMBER; 
     root_inode->i_sb = sb; // su superbloque 
     root_inode->i_op = &assoofs_inode_ops;  //le pasamos las operaciones que podra hacer, estan en un struct arriba
     root_inode->i_fop = &assoofs_dir_operations; //esto porque sera un directorio asique sus operaciones son estas
@@ -131,7 +131,7 @@ static int assoofs_iterate(struct file *filp, struct dir_context *ctx) { //filp 
     struct assoofs_dir_record_entry *record;
     int i; //i :)
 
-    printk(KERN_INFO "assoofs_iterate called\n");  //log util
+    printk(KERN_INFO "assoofs_iterate called\n");  //log util 
 
     if (ctx->pos)   //si es 0 es que ya se listo todo
         return 0;
@@ -187,7 +187,7 @@ static int assoofs_create(struct mnt_idmap *idmap, struct inode *dir, struct den
     // se le añade al directorio padre el que se nos paso 
     bh = sb_bread(sb, parent_info->data_block_number);
     record = (struct assoofs_dir_record_entry *)bh->b_data;
-    record += parent_info->dir_children_count;  //leemos el bloque de entradas y apuntamos a una posicion vacia
+    record += parent_info->dir_children_count;  //Nos desplazamos hasta la posición vacía (el siguiente slot libre en el array de entradas de directorio)
 
     strcpy(record->filename, dentry->d_name.name); //rellenamos la nueva entrada
     record->inode_no = inode_info->inode_no;
@@ -205,7 +205,7 @@ static int assoofs_create(struct mnt_idmap *idmap, struct inode *dir, struct den
 
     assoofs_save_sb_info(sb);  // guardar superbloque actualizado en disco 
 
-    d_instantiate(dentry, inode); // se le dice al kernel que este dentry esta asociado a este inodo(es importante si se quiere usar)
+    d_instantiate(dentry, inode); // Asocia el dentry (nombre + path) con el inodo que acabamos de crear, necesario para acceso posterior (lookup, etc.)
 
     printk(KERN_INFO "File %s created successfully\n", dentry->d_name.name);
     return 0;
@@ -422,7 +422,7 @@ static ssize_t assoofs_write(struct file *filp, const char __user *buf, size_t l
 }
 //se nos pasa el inodo del directorio padre y el nombre del archivo a borrar
 static int assoofs_remove(struct inode *dir, struct dentry *dentry) {
-    struct inode *inode = d_inode(dentry);  //obtenemos el inodo a del directorio de entreda que se nos paso 
+    struct inode *inode = d_inode(dentry);  //Obtenemos el inodo asociado al archivo/directorio que queremos eliminar (a partir del dentry) 
     struct super_block *sb = dir->i_sb; //ahora mediante el dir buscamos cual es el superbloque del sistema
     struct assoofs_super_block_info *assoofs_sb = sb->s_fs_info; // en sb estamos apuntando al superbloque aqui apuntamos a 
     struct assoofs_inode_info *parent_info = dir->i_private;
@@ -455,8 +455,8 @@ static int assoofs_remove(struct inode *dir, struct dentry *dentry) {
     assoofs_save_sb_info(sb);  // Guardamos cambios del superbloque
 
     // 3. Borrar el inodo (liberarlo)
-    clear_nlink(inode);
-    inode->i_size = 0;
+    clear_nlink(inode);   //Eliminamos todos los enlaces duros del inodo (clear_nlink), ponemos ->
+    inode->i_size = 0;     //-> tamaño a 0 y marcamos el inodo como modificado para que se actualice.
     mark_inode_dirty(inode);
 
     printk(KERN_INFO "File %s removed successfully\n", dentry->d_name.name);
