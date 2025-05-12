@@ -104,7 +104,7 @@ int main(int argc, char *argv[]) {
     	return -1;
 	}
 
-	char welcomefile_body[] = "Hola mundo, os saludo desde un sistema de ficheros ASSOOFS.\n";   //esto es la declaracion de lo que escribiremos en el Readme
+	char welcomefile_body[] = "Autor: Juan Alberto Pablos Yugueros\nDNI: 71716147P";   //esto es la declaracion de lo que escribiremos en el Readme
 
 	struct assoofs_inode_info welcome = {   //EStructura del inodo del README
     	.mode = S_IFREG, //Se le indica que es un archivo no un directorio 
