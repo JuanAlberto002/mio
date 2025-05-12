@@ -422,9 +422,9 @@ static ssize_t assoofs_write(struct file *filp, const char __user *buf, size_t l
 }
 //se nos pasa el inodo del directorio padre y el nombre del archivo a borrar
 static int assoofs_remove(struct inode *dir, struct dentry *dentry) {
-    struct inode *inode = d_inode(dentry);  //obtenemos el inodo a borrar 
-    struct super_block *sb = dir->i_sb; //el inodo del directorio
-    struct assoofs_super_block_info *assoofs_sb = sb->s_fs_info; // el superbloque 
+    struct inode *inode = d_inode(dentry);  //obtenemos el inodo a del directorio de entreda que se nos paso 
+    struct super_block *sb = dir->i_sb; //ahora mediante el dir buscamos cual es el superbloque del sistema
+    struct assoofs_super_block_info *assoofs_sb = sb->s_fs_info; // en sb estamos apuntando al superbloque aqui apuntamos a 
     struct assoofs_inode_info *parent_info = dir->i_private;
     struct buffer_head *bh;
     struct assoofs_dir_record_entry *record;
