@@ -33,7 +33,7 @@ struct assoofs_super_block_info {  //estructura del SUPERBLOQUE ya lo tenemos pu
 
 struct assoofs_dir_record_entry { //lo mismo con el directorio de entrada
 	char filename[ASSOOFS_FILENAME_MAXLEN]; //nombre del archivo
-	uint64_t inode_no;  //DNI del inodo
+	uint64_t inode_no;  
 	uint64_t entry_removed;  //si ha sido borrado se hace para hacer soft deletes y asi poder recuperar archivos eliminados
 };
 
