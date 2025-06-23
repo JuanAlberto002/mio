@@ -204,6 +204,11 @@ static int assoofs_create(struct mnt_idmap *idmap, struct inode *dir, struct den
     assoofs_sb->free_inodes--;
 
     assoofs_save_sb_info(sb);  // guardar superbloque actualizado en disco 
+    struct buffer_head *new_bh = sb_getblk(sb, inode_info->data_block_number);
+    memset(new_bh->b_data, 0, ASSOOFS_DEFAULT_BLOCK_SIZE);
+    mark_buffer_dirty(new_bh);
+    sync_dirty_buffer(new_bh);
+    brelse(new_bh);
 
     d_instantiate(dentry, inode); // Asocia el dentry (nombre + path) con el inodo que acabamos de crear, necesario para acceso posterior (lookup, etc.)
 
@@ -297,6 +302,11 @@ static int assoofs_mkdir(struct mnt_idmap *idmap, struct inode *dir, struct dent
     assoofs_sb->free_inodes--;
 
     assoofs_save_sb_info(sb);  
+    struct buffer_head *new_bh = sb_getblk(sb, inode_info->data_block_number);
+    memset(new_bh->b_data, 0, ASSOOFS_DEFAULT_BLOCK_SIZE);
+    mark_buffer_dirty(new_bh);
+    sync_dirty_buffer(new_bh);
+    brelse(new_bh);
 
     d_instantiate(dentry, inode);
 
