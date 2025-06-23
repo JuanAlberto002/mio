@@ -1,7 +1,7 @@
 #ifndef ASSOOFS_H
 #define ASSOOFS_H
 
-#include <stdint.h>
+#include <linux/types.h> 
 #include <linux/stat.h>
 
 #define ASSOOFS_MAGIC 0x20200406   //NUMERO MAGICO asi el kernel sabra que es ASSOOFS
