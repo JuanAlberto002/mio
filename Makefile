@@ -1,13 +1,20 @@
 obj-m := assoofs.o
 
-all: ko mkassoofs
+MKASSOOFS = mkassoofs
+
+CC = gcc
+
+CFLAGS = -Wall
+
+all: ko $(MKASSOOFS)
 
 ko:
 	make -C /lib/modules/$(shell uname -r)/build M=$(shell pwd) modules
 
-mkassoofs: mkassoofs.c assoofs.h
-	gcc -Wall -o mkassoofs mkassoofs.c
+$(MKASSOOFS): mkassoofs.c assoofs.h
+	$(CC) $(CFLAGS) -o $(MKASSOOFS) mkassoofs.c
 
 clean:
 	make -C /lib/modules/$(shell uname -r)/build M=$(shell pwd) clean
-	rm -f mkassoofs
+	rm -f $(MKASSOOFS)
+
