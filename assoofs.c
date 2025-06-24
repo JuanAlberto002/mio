@@ -9,7 +9,7 @@
 
 
 MODULE_LICENSE("GPL");
-MODULE_AUTHOR("Tu Nombre");
+MODULE_AUTHOR("Juan Alberto Pablos");
 MODULE_DESCRIPTION("Sistema de ficheros ASSOOFS");
 // Prototipos de nuevas funciones
 static uint64_t assoofs_sb_get_freeinode(struct super_block *sb);
@@ -426,6 +426,7 @@ static ssize_t assoofs_write(struct file *filp, const char __user *buf, size_t l
     inode->i_size = inode_info->file_size;
 
     mark_inode_dirty(inode);  //marcamos el inodo como sucio hay que guardar su nueva info 
+    assoofs_add_inode_info(sb, inode_info);
 
     ret = len;
     return ret;
