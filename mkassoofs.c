@@ -3,7 +3,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <linux/types.h> 
+#include <linux/types.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include "assoofs.h"
